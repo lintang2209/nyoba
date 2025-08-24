@@ -100,13 +100,16 @@ elif st.session_state.page == "deteksi":
                 img_array = np.expand_dims(img_array, axis=0)
 
                 prediction = cnn_model.predict(img_array)
-                class_id = np.argmax(prediction)
-                confidence = np.max(prediction)
+                # Ini urutan yang benar berdasarkan folder di /train/
+CLASS_NAMES = ["sehat", "soybean_rust"]  # class index 0 = sehat, 1 = soybean_rust
 
-                predicted_class_name = CLASS_NAMES[class_id]
+predicted_class_name = CLASS_NAMES[class_id]
 
-                st.write(f"### Prediksi: **{predicted_class_name}**")
-                st.write(f"Confidence: **{confidence:.2f}**")
+# Jika ingin nama tampilannya lebih rapi:
+label_display = "Sehat" if predicted_class_name == "sehat" else "Soybean Rust"
+
+st.write(f"### Prediksi: **{label_display}**")
+st.write(f"Confidence: **{confidence:.2f}**")
 
                 # Threshold confidence
                 threshold = 0.6
