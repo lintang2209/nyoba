@@ -6,6 +6,9 @@ import tensorflow as tf
 from ultralytics import YOLO
 import json
 
+# ====================
+# Styling CSS
+# ====================
 st.markdown("""
 <style>
 body {background-color: white;}
@@ -23,19 +26,22 @@ body {background-color: white;}
 </style>
 """, unsafe_allow_html=True)
 
+# ====================
+# Navigasi
+# ====================
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
 if st.session_state.page == "home":
     st.markdown("""
     <div class="center">
-        <p class="title">ayo cek tanamanmu!</p>
-        <p class="subtitle">kenali soybean rust sejak dini<br>untuk hasil panen yang lebih baik</p>
+        <p class="title">Ayo cek tanamanmu!</p>
+        <p class="subtitle">Kenali soybean rust sejak dini untuk hasil panen yang lebih baik</p>
     </div>
     """, unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1,1,1])
     with col2:
-        if st.button("cek disini"):
+        if st.button("Cek Disini"):
             st.session_state.page = "deteksi"
             st.rerun()
 
@@ -43,6 +49,9 @@ elif st.session_state.page == "deteksi":
     st.title("Deteksi Penyakit Soybean Rust (CNN + YOLO) 🌱")
     st.write("Unggah gambar daun untuk melihat hasil deteksi CNN + YOLO")
 
+    # ====================
+    # Load Model
+    # ====================
     @st.cache_resource
     def load_cnn_model():
         MODEL_PATH = "models/cnn.h5"
@@ -69,7 +78,6 @@ elif st.session_state.page == "deteksi":
             return json.load(f)
 
     def model_has_rescaling(m):
-        # Cek menyeluruh apakah ada layer Rescaling di dalam model
         try:
             for lyr in m._flatten_layers():
                 if isinstance(lyr, tf.keras.layers.Rescaling):
@@ -87,7 +95,6 @@ elif st.session_state.page == "deteksi":
         st.stop()
 
     HAS_RESCALING = model_has_rescaling(cnn_model)
-    st.caption(f": {'(Rescaling di dalam model → JANGAN /255 di app)' if HAS_RESCALING else '(Tidak ada Rescaling di model → /255 di app)'}")
 
     uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg","png","jpeg"])
     if uploaded_file:
@@ -95,39 +102,35 @@ elif st.session_state.page == "deteksi":
         st.image(image, caption="Gambar yang diunggah", use_column_width=True)
         st.write("---")
 
-        # === Preprocess CNN ===
+        # ====================
+        # Preprocess CNN
+        # ====================
         img_resized = image.resize((224,224))
         x = np.array(img_resized, dtype=np.float32)
-
-        if HAS_RESCALING:
-            # Model sudah melakukan /255 di dalam graf → kirim 0–255
-            img_array = np.expand_dims(x, axis=0)
-        else:
-            # Model belum melakukan /255 → normalisasi di app
-            img_array = np.expand_dims(x / 255.0, axis=0)
+        img_array = np.expand_dims(x, axis=0) if HAS_RESCALING else np.expand_dims(x / 255.0, axis=0)
 
         prediction = cnn_model.predict(img_array)
         class_id = int(np.argmax(prediction))
         confidence = float(np.max(prediction))
 
-        # Threshold untuk label "tidak yakin"
         THRESHOLD = 0.60
         cnn_label = class_names[class_id] if confidence >= THRESHOLD else "Tidak yakin"
 
-        # === Jalankan YOLO ===
+        # ====================
+        # Jalankan YOLO
+        # ====================
         results = yolo_model(image)
         results_img = results[0].plot()
         yolo_detected = len(results[0].boxes) > 0
 
-        # === Layout 2 kolom ===
+        # ====================
+        # Layout 2 kolom
+        # ====================
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Hasil CNN")
-            st.write("Raw prediction:", prediction)
-            st.write("Class names:", class_names)
-            st.write(f"Predicted class id: {class_id}")
-            st.write(f"Confidence: {confidence:.2f}")
-            st.write(f"Label CNN: **{cnn_label}**")
+            st.write(f"Prediksi CNN: **{cnn_label}**")
+            st.write(f"Confidence: **{confidence:.2f}**")
 
         with col2:
             st.subheader("Hasil YOLOv8")
@@ -137,15 +140,15 @@ elif st.session_state.page == "deteksi":
             else:
                 st.info("Tidak ada lesion terdeteksi oleh YOLO")
 
-        # === Aturan gabungan (utamakan YOLO untuk lesion) ===
-        # Jika YOLO tidak mendeteksi lesion, anggap sehat, KECUALI CNN sangat yakin (>=0.99) menyatakan sakit.
+        # ====================
+        # Prediksi Akhir Gabungan
+        # ====================
         if not yolo_detected:
             if cnn_label.lower() in ["soybean rust", "sakit"] and confidence >= 0.99:
                 final_label = ("Sakit", "bad")
             else:
                 final_label = ("Sehat", "good")
         else:
-            # Ada lesion → anggap sakit
             final_label = ("Sakit", "bad")
 
         st.markdown("---")
