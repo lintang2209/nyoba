@@ -78,14 +78,10 @@ elif st.session_state.page == "deteksi":
             return json.load(f)
 
     def model_has_rescaling(m):
-        try:
-            for lyr in m._flatten_layers():
-                if isinstance(lyr, tf.keras.layers.Rescaling):
-                    return True
-        except Exception:
-            for lyr in m.layers:
-                if isinstance(lyr, tf.keras.layers.Rescaling):
-                    return True
+        # Cek apakah model sudah memiliki layer Rescaling
+        for layer in m.layers:
+            if isinstance(layer, tf.keras.layers.Rescaling):
+                return True
         return False
 
     cnn_model = load_cnn_model()
