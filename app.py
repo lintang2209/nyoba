@@ -6,6 +6,7 @@ import tensorflow as tf
 from ultralytics import YOLO
 import json
 import gc
+import matplotlib.pyplot as plt
 
 # ====================
 # Styling CSS
@@ -96,36 +97,44 @@ elif st.session_state.page == "deteksi":
         # ----- CNN Prediction -----
         img_resized = image.resize((224,224))
         x = np.array(img_resized, dtype=np.float32)
-        img_array = np.expand_dims(x, axis=0)  # jangan dibagi /255 karena model sudah ada Rescaling
+        img_array = np.expand_dims(x, axis=0)
 
-        # Pakai predict() untuk output softmax
         prediction = cnn_model.predict(img_array, verbose=0)[0]
         class_id = int(np.argmax(prediction))
         confidence = float(prediction[class_id])
         cnn_label = class_names[class_id]
-
-        # Tampilkan confidence tiap kelas
-        st.subheader("Hasil CNN")
-        for idx, cls_name in enumerate(class_names):
-            st.write(f"{cls_name}: **{prediction[idx]:.2f}**")
-
-        st.write(f"Prediksi CNN: **{cnn_label}**")
-        st.write(f"Confidence Maks: **{confidence:.2f}**")
 
         # ----- YOLO Prediction -----
         results = yolo_model(image)
         results_img = results[0].plot()
         yolo_detected = len(results[0].boxes) > 0
 
-        st.subheader("Hasil YOLOv8")
-        st.image(results_img, caption="Hasil YOLO", use_column_width=True)
-        if yolo_detected:
-            st.success("Lesion terdeteksi oleh YOLO")
-        else:
-            st.info("Tidak ada lesion terdeteksi oleh YOLO")
+        # ----- Layout berdampingan -----
+        col1, col2 = st.columns(2)
+
+        # Kolom CNN
+        with col1:
+            st.subheader("Hasil CNN")
+            st.write(f"Prediksi CNN: **{cnn_label}** (Confidence: {confidence:.2f})")
+
+            # Plot confidence semua kelas
+            fig, ax = plt.subplots()
+            ax.barh(class_names, prediction, color="#4b8b64")
+            ax.set_xlim([0,1])
+            ax.set_xlabel("Confidence")
+            st.pyplot(fig)
+
+        # Kolom YOLO
+        with col2:
+            st.subheader("Hasil YOLOv8")
+            st.image(results_img, caption="Hasil YOLO", use_column_width=True)
+            if yolo_detected:
+                st.success("Lesion terdeteksi oleh YOLO")
+            else:
+                st.info("Tidak ada lesion terdeteksi oleh YOLO")
 
         # ----- Bersihkan memori -----
-        del results_img, results, img_array, x
+        del results_img, results, img_array, x, fig, ax
         gc.collect()
 
         # ----- Prediksi Gabungan -----
