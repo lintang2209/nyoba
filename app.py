@@ -77,18 +77,11 @@ elif st.session_state.page == "deteksi":
         with open(PATH, "r") as f:
             return json.load(f)
 
-    def model_has_rescaling(m):
-        for layer in m.layers:
-            if isinstance(layer, tf.keras.layers.Rescaling):
-                return True
-        return False
-
     cnn_model = load_cnn_model()
     yolo_model = load_yolo_model()
     class_names = load_class_names()
     if None in [cnn_model, yolo_model, class_names]:
         st.stop()
-    HAS_RESCALING = model_has_rescaling(cnn_model)
 
     # ====================
     # Upload gambar
@@ -103,31 +96,33 @@ elif st.session_state.page == "deteksi":
         # ----- CNN Prediction -----
         img_resized = image.resize((224,224))
         x = np.array(img_resized, dtype=np.float32)
-        img_array = np.expand_dims(x, axis=0)  # jangan /255 karena Rescaling ada di model
-        prediction = cnn_model(img_array, training=False).numpy()[0]
+        img_array = np.expand_dims(x, axis=0)  # jangan dibagi /255 karena model sudah ada Rescaling
+
+        # Pakai predict() untuk output softmax
+        prediction = cnn_model.predict(img_array, verbose=0)[0]
         class_id = int(np.argmax(prediction))
         confidence = float(prediction[class_id])
         cnn_label = class_names[class_id]
+
+        # Tampilkan confidence tiap kelas
+        st.subheader("Hasil CNN")
+        for idx, cls_name in enumerate(class_names):
+            st.write(f"{cls_name}: **{prediction[idx]:.2f}**")
+
+        st.write(f"Prediksi CNN: **{cnn_label}**")
+        st.write(f"Confidence Maks: **{confidence:.2f}**")
 
         # ----- YOLO Prediction -----
         results = yolo_model(image)
         results_img = results[0].plot()
         yolo_detected = len(results[0].boxes) > 0
 
-        # ----- Layout -----
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("Hasil CNN")
-            st.write(f"Prediksi CNN: **{cnn_label}**")
-            st.write(f"Confidence: **{confidence:.2f}**")
-
-        with col2:
-            st.subheader("Hasil YOLOv8")
-            st.image(results_img, caption="Hasil YOLO", use_column_width=True)
-            if yolo_detected:
-                st.success("Lesion terdeteksi oleh YOLO")
-            else:
-                st.info("Tidak ada lesion terdeteksi oleh YOLO")
+        st.subheader("Hasil YOLOv8")
+        st.image(results_img, caption="Hasil YOLO", use_column_width=True)
+        if yolo_detected:
+            st.success("Lesion terdeteksi oleh YOLO")
+        else:
+            st.info("Tidak ada lesion terdeteksi oleh YOLO")
 
         # ----- Bersihkan memori -----
         del results_img, results, img_array, x
