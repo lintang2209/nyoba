@@ -62,7 +62,7 @@ elif st.session_state.page == "deteksi":
 
     @st.cache_resource
     def load_yolo_model():
-        MODEL_PATH = "models/best_nano.pt"
+        MODEL_PATH = "models/best.pt"
         if not os.path.exists(MODEL_PATH):
             st.error(f"Model YOLOv8 tidak ditemukan: {MODEL_PATH}")
             return None
