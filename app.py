@@ -84,4 +84,99 @@ elif st.session_state.page == "deteksi":
         MODEL_PATH = os.path.join(os.path.dirname(__file__), "models/cnn.h5")
         CLASS_NAMES_PATH = os.path.join(os.path.dirname(__file__), "models/class_names.json")
 
-        os.makedirs(os.path.dirname(MODEL
+        # pastikan folder models ada
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+
+        # Download model jika belum ada
+        if not os.path.exists(MODEL_PATH):
+            st.info("Mengunduh model dari Google Drive...")
+            gdown.download(f'https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}', MODEL_PATH, quiet=False)
+            st.success("Model berhasil diunduh!")
+
+        # Load model
+        try:
+            model = tf.keras.models.load_model(MODEL_PATH)
+        except Exception as e:
+            st.error(f"Gagal memuat model CNN: {e}")
+            return None, None
+
+        # Load class_names.json
+        if not os.path.exists(CLASS_NAMES_PATH):
+            st.error(f"File class_names.json tidak ditemukan di {CLASS_NAMES_PATH}")
+            return model, None
+
+        try:
+            with open(CLASS_NAMES_PATH, "r") as f:
+                class_names = json.load(f)
+        except Exception as e:
+            st.error(f"Gagal memuat class names: {e}")
+            return model, None
+
+        return model, class_names
+
+    @st.cache_resource
+    def load_yolo_model():
+        MODEL_PATH = os.path.join(os.path.dirname(__file__), "models/best.pt")
+        if not os.path.exists(MODEL_PATH):
+            st.error(f"File model YOLOv8 tidak ditemukan: {MODEL_PATH}")
+            return None
+        try:
+            model = YOLO(MODEL_PATH)
+            return model
+        except Exception as e:
+            st.error(f"Gagal memuat model YOLOv8: {e}")
+            return None
+
+    cnn_model, class_names = load_cnn_model()
+    yolo_model = load_yolo_model()
+
+    if cnn_model is None or class_names is None or yolo_model is None:
+        st.stop()
+
+    uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg", "png", "jpeg"])
+
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="Gambar yang diunggah", use_column_width=True)
+        st.write("---")
+
+        col1, col2 = st.columns(2)
+
+        # ==== CNN ====
+        with col1:
+            st.header("Hasil Analisis CNN")
+            try:
+                img_resized = image.resize((224,224))
+                img_array = np.expand_dims(np.array(img_resized)/255.0, axis=0)
+
+                prediction = cnn_model.predict(img_array)
+                class_id = np.argmax(prediction)
+                confidence = np.max(prediction)
+                predicted_class_name = class_names[class_id]
+
+                st.write(f"### Prediksi: **{predicted_class_name}**")
+                st.write(f"Confidence: **{confidence:.2f}**")
+            except Exception as e:
+                st.error(f"Terjadi kesalahan pada model CNN: {e}")
+
+        # ==== YOLOv8 ====
+        with col2:
+            st.header("Hasil Analisis YOLOv8")
+            try:
+                results = yolo_model(image)
+                results_img = results[0].plot()
+                st.image(results_img, caption="Hasil Deteksi YOLOv8", use_column_width=True)
+
+                if len(results[0].boxes) > 0:
+                    st.write("#### Detail Deteksi:")
+                    for box in results[0].boxes:
+                        conf = float(box.conf[0])
+                        st.write(f"- Ditemukan **Penyakit Soybean Rust** dengan confidence **{conf:.2f}**")
+                else:
+                    st.write("Tidak ditemukan penyakit Soybean Rust.")
+            except Exception as e:
+                st.error(f"Terjadi kesalahan pada model YOLOv8: {e}")
+
+    if st.button("⬅️ Kembali ke Beranda"):
+        st.session_state.page = "home"
+        st.rerun()
