@@ -50,7 +50,7 @@ elif st.session_state.page == "deteksi":
     st.write("Unggah gambar daun untuk melihat hasil deteksi CNN + YOLO")
 
     # ====================
-    # Load Model (cached)
+    # Load Model & Class Names
     # ====================
     @st.cache_resource
     def load_cnn_model():
@@ -100,27 +100,21 @@ elif st.session_state.page == "deteksi":
         st.image(image, caption="Gambar yang diunggah", use_column_width=True)
         st.write("---")
 
-        # ====================
-        # CNN Prediction
-        # ====================
+        # ----- CNN Prediction -----
         img_resized = image.resize((224,224))
         x = np.array(img_resized, dtype=np.float32)
-        img_array = np.expand_dims(x, axis=0)  # jangan divalidasi /255 lagi
+        img_array = np.expand_dims(x, axis=0)  # jangan /255 karena Rescaling ada di model
         prediction = cnn_model(img_array, training=False).numpy()[0]
         class_id = int(np.argmax(prediction))
         confidence = float(prediction[class_id])
         cnn_label = class_names[class_id]
 
-        # ====================
-        # YOLO Prediction
-        # ====================
+        # ----- YOLO Prediction -----
         results = yolo_model(image)
         results_img = results[0].plot()
         yolo_detected = len(results[0].boxes) > 0
 
-        # ====================
-        # Layout
-        # ====================
+        # ----- Layout -----
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Hasil CNN")
@@ -135,15 +129,11 @@ elif st.session_state.page == "deteksi":
             else:
                 st.info("Tidak ada lesion terdeteksi oleh YOLO")
 
-        # ====================
-        # Bersihkan memori
-        # ====================
+        # ----- Bersihkan memori -----
         del results_img, results, img_array, x
         gc.collect()
 
-        # ====================
-        # Prediksi Gabungan
-        # ====================
+        # ----- Prediksi Gabungan -----
         final_label = ("Sakit", "bad") if yolo_detected or cnn_label.lower() == "soybean_rust" else ("Sehat", "good")
         st.markdown("---")
         st.subheader("🌱 Prediksi Akhir")
