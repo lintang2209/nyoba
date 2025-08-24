@@ -62,7 +62,7 @@ elif st.session_state.page == "deteksi":
 
     @st.cache_resource
     def load_yolo_model():
-        MODEL_PATH = "models/best_nano.pt"  # YOLOv8 Nano
+        MODEL_PATH = "models/best_nano.pt"
         if not os.path.exists(MODEL_PATH):
             st.error(f"Model YOLOv8 tidak ditemukan: {MODEL_PATH}")
             return None
@@ -83,6 +83,9 @@ elif st.session_state.page == "deteksi":
                 return True
         return False
 
+    # ====================
+    # Load semua model
+    # ====================
     cnn_model = load_cnn_model()
     yolo_model = load_yolo_model()
     class_names = load_class_names()
@@ -90,11 +93,13 @@ elif st.session_state.page == "deteksi":
         st.stop()
     HAS_RESCALING = model_has_rescaling(cnn_model)
 
+    # ====================
+    # Upload gambar
+    # ====================
     uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg","png","jpeg"])
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
-        # Batasi ukuran untuk menghemat memori
-        image.thumbnail((1024,1024))
+        image.thumbnail((1024,1024))  # batasi ukuran
         st.image(image, caption="Gambar yang diunggah", use_column_width=True)
         st.write("---")
 
@@ -103,11 +108,16 @@ elif st.session_state.page == "deteksi":
         # ====================
         img_resized = image.resize((224,224))
         x = np.array(img_resized, dtype=np.float32)
-        img_array = np.expand_dims(x, axis=0) if HAS_RESCALING else np.expand_dims(x/255.0, axis=0)
+
+        # Preprocessing sesuai model
+        if HAS_RESCALING:
+            img_array = np.expand_dims(x, axis=0)
+        else:
+            img_array = np.expand_dims(x / 255.0, axis=0)
 
         prediction = cnn_model.predict(img_array)
         class_id = int(np.argmax(prediction))
-        confidence = float(np.max(prediction))
+        confidence = float(prediction[0][class_id])
         cnn_label = class_names[class_id]
 
         # ====================
@@ -135,13 +145,13 @@ elif st.session_state.page == "deteksi":
                 st.info("Tidak ada lesion terdeteksi oleh YOLO")
 
         # ====================
-        # Bersihkan memori besar
+        # Bersihkan memori
         # ====================
         del results_img, results, img_array, x
         gc.collect()
 
         # ====================
-        # Prediksi Akhir Gabungan
+        # Prediksi Gabungan
         # ====================
         final_label = ("Sakit", "bad") if yolo_detected or cnn_label.lower() == "soybean_rust" else ("Sehat", "good")
         st.markdown("---")
