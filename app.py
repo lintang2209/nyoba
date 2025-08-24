@@ -77,63 +77,68 @@ elif st.session_state.page == "deteksi":
     st.title("Perbandingan Deteksi Penyakit Soybean Rust (CNN vs YOLO) 🌱")
     st.write("Unggah satu gambar daun kedelai untuk melihat hasil deteksi dari kedua model secara bersamaan.")
 
-    # ---- Load CNN & class_names ----
+    # ---- Fungsi Load CNN & class_names ----
     @st.cache_resource
-    def load_cnn_model():
-        GOOGLE_DRIVE_FILE_ID = "1sZegfJRnGu2tr00qtinTAeZeLaQnllrO"
-        MODEL_PATH = os.path.join(os.path.dirname(__file__), "models/cnn.h5")
-        CLASS_NAMES_PATH = os.path.join(os.path.dirname(__file__), "models/class_names.json")
+    def load_cnn_and_classes():
+        GOOGLE_DRIVE_MODEL_ID = "1sZegfJRnGu2tr00qtinTAeZeLaQnllrO"  # ganti dengan file cnn.h5 kamu
+        GOOGLE_DRIVE_CLASSES_ID = "ID_FILE_CLASS_NAMES"               # ganti dengan file class_names.json
 
-        # pastikan folder models ada
-        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        MODEL_PATH = os.path.join("models", "cnn.h5")
+        CLASS_NAMES_PATH = os.path.join("models", "class_names.json")
 
-        # Download model jika belum ada
+        os.makedirs("models", exist_ok=True)
+
+        # Download cnn.h5 jika belum ada
         if not os.path.exists(MODEL_PATH):
-            st.info("Mengunduh model dari Google Drive...")
-            gdown.download(f'https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}', MODEL_PATH, quiet=False)
-            st.success("Model berhasil diunduh!")
+            st.info("Mengunduh cnn.h5 dari Google Drive...")
+            gdown.download(f'https://drive.google.com/uc?id={GOOGLE_DRIVE_MODEL_ID}', MODEL_PATH, quiet=False)
+            st.success("cnn.h5 berhasil diunduh!")
+
+        # Download class_names.json jika belum ada
+        if not os.path.exists(CLASS_NAMES_PATH):
+            st.info("Mengunduh class_names.json dari Google Drive...")
+            gdown.download(f'https://drive.google.com/uc?id={GOOGLE_DRIVE_CLASSES_ID}', CLASS_NAMES_PATH, quiet=False)
+            st.success("class_names.json berhasil diunduh!")
 
         # Load model
         try:
             model = tf.keras.models.load_model(MODEL_PATH)
         except Exception as e:
-            st.error(f"Gagal memuat model CNN: {e}")
+            st.error(f"Gagal memuat cnn.h5: {e}")
             return None, None
 
-        # Load class_names.json
-        if not os.path.exists(CLASS_NAMES_PATH):
-            st.error(f"File class_names.json tidak ditemukan di {CLASS_NAMES_PATH}")
-            return model, None
-
+        # Load class_names
         try:
             with open(CLASS_NAMES_PATH, "r") as f:
                 class_names = json.load(f)
         except Exception as e:
-            st.error(f"Gagal memuat class names: {e}")
+            st.error(f"Gagal memuat class_names.json: {e}")
             return model, None
 
         return model, class_names
 
+    # ---- Fungsi Load YOLO ----
     @st.cache_resource
-    def load_yolo_model():
-        MODEL_PATH = os.path.join(os.path.dirname(__file__), "models/best.pt")
+    def load_yolo():
+        MODEL_PATH = os.path.join("models", "best.pt")
         if not os.path.exists(MODEL_PATH):
-            st.error(f"File model YOLOv8 tidak ditemukan: {MODEL_PATH}")
+            st.error(f"File YOLOv8 {MODEL_PATH} tidak ditemukan")
             return None
         try:
             model = YOLO(MODEL_PATH)
             return model
         except Exception as e:
-            st.error(f"Gagal memuat model YOLOv8: {e}")
+            st.error(f"Gagal memuat YOLOv8: {e}")
             return None
 
-    cnn_model, class_names = load_cnn_model()
-    yolo_model = load_yolo_model()
+    # Load model
+    cnn_model, class_names = load_cnn_and_classes()
+    yolo_model = load_yolo()
 
     if cnn_model is None or class_names is None or yolo_model is None:
         st.stop()
 
-    uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg", "png", "jpeg"])
+    uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg","png","jpeg"])
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file).convert("RGB")
@@ -157,9 +162,9 @@ elif st.session_state.page == "deteksi":
                 st.write(f"### Prediksi: **{predicted_class_name}**")
                 st.write(f"Confidence: **{confidence:.2f}**")
             except Exception as e:
-                st.error(f"Terjadi kesalahan pada model CNN: {e}")
+                st.error(f"Kesalahan pada CNN: {e}")
 
-        # ==== YOLOv8 ====
+        # ==== YOLO ====
         with col2:
             st.header("Hasil Analisis YOLOv8")
             try:
@@ -175,7 +180,7 @@ elif st.session_state.page == "deteksi":
                 else:
                     st.write("Tidak ditemukan penyakit Soybean Rust.")
             except Exception as e:
-                st.error(f"Terjadi kesalahan pada model YOLOv8: {e}")
+                st.error(f"Kesalahan pada YOLOv8: {e}")
 
     if st.button("⬅️ Kembali ke Beranda"):
         st.session_state.page = "home"
