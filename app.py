@@ -8,7 +8,7 @@ import json
 import gc
 
 # ====================
-# Styling CSS
+# CSS Styling
 # ====================
 st.markdown("""
 <style>
@@ -16,10 +16,7 @@ body {background-color: white;}
 .center {text-align: center; padding-top: 120px;}
 .title {font-size: 36px; font-weight: 700; color: #4b8b64;}
 .subtitle {font-size: 16px; font-style: italic; color: #7d7d7d; margin-top: -10px;}
-.stButton>button {
-    background-color: #f0f0f0; color: #4b8b64; border-radius: 20px; border: none;
-    padding: 10px 25px; font-weight: 600; cursor: pointer; transition: 0.3s;
-}
+.stButton>button {background-color: #f0f0f0; color: #4b8b64; border-radius: 20px; border: none; padding: 10px 25px; font-weight: 600; cursor: pointer; transition: 0.3s;}
 .stButton>button:hover {background-color: #4b8b64; color: white;}
 .good {color:#1b7f2a; font-weight:700;}
 .bad {color:#c62828; font-weight:700;}
@@ -62,7 +59,7 @@ elif st.session_state.page == "deteksi":
 
     @st.cache_resource
     def load_yolo_model():
-        MODEL_PATH = "models/best.pt"
+        MODEL_PATH = "models/best.pt"  # Sesuaikan path YOLOv8
         if not os.path.exists(MODEL_PATH):
             st.error(f"Model YOLOv8 tidak ditemukan: {MODEL_PATH}")
             return None
@@ -77,11 +74,19 @@ elif st.session_state.page == "deteksi":
         with open(PATH, "r") as f:
             return json.load(f)
 
-    def model_has_rescaling(m):
-        for layer in m.layers:
-            if isinstance(layer, tf.keras.layers.Rescaling):
+    def model_preprocess_input(model, img_array):
+        """Preprocess sesuai model, cek Rescaling internal"""
+        from tensorflow.keras.layers import Rescaling
+        def has_rescaling(layer):
+            if isinstance(layer, Rescaling):
                 return True
-        return False
+            if hasattr(layer, 'layers'):
+                return any(has_rescaling(l) for l in layer.layers)
+            return False
+        if has_rescaling(model):
+            return np.expand_dims(img_array, axis=0)  # Rescaling internal
+        else:
+            return np.expand_dims(img_array / 255.0, axis=0)  # Manual /255
 
     # ====================
     # Load semua model
@@ -91,7 +96,6 @@ elif st.session_state.page == "deteksi":
     class_names = load_class_names()
     if None in [cnn_model, yolo_model, class_names]:
         st.stop()
-    HAS_RESCALING = model_has_rescaling(cnn_model)
 
     # ====================
     # Upload gambar
@@ -103,33 +107,21 @@ elif st.session_state.page == "deteksi":
         st.image(image, caption="Gambar yang diunggah", use_column_width=True)
         st.write("---")
 
-        # ====================
-        # CNN Prediction
-        # ====================
+        # ---- CNN Prediction ----
         img_resized = image.resize((224,224))
         x = np.array(img_resized, dtype=np.float32)
-
-        # Preprocessing sesuai model
-        if HAS_RESCALING:
-            img_array = np.expand_dims(x, axis=0)
-        else:
-            img_array = np.expand_dims(x / 255.0, axis=0)
-
-        prediction = cnn_model.predict(img_array)
+        img_array = model_preprocess_input(cnn_model, x)
+        prediction = cnn_model.predict(img_array, verbose=0)
         class_id = int(np.argmax(prediction))
         confidence = float(prediction[0][class_id])
         cnn_label = class_names[class_id]
 
-        # ====================
-        # YOLO Prediction
-        # ====================
+        # ---- YOLO Prediction ----
         results = yolo_model(image)
         results_img = results[0].plot()
         yolo_detected = len(results[0].boxes) > 0
 
-        # ====================
-        # Layout
-        # ====================
+        # ---- Layout ----
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Hasil CNN")
@@ -137,22 +129,18 @@ elif st.session_state.page == "deteksi":
             st.write(f"Confidence: **{confidence:.2f}**")
 
         with col2:
-            st.subheader("Hasil YOLOv8 Nano")
+            st.subheader("Hasil YOLOv8")
             st.image(results_img, caption="Hasil YOLO", use_column_width=True)
             if yolo_detected:
                 st.success("Lesion terdeteksi oleh YOLO")
             else:
                 st.info("Tidak ada lesion terdeteksi oleh YOLO")
 
-        # ====================
-        # Bersihkan memori
-        # ====================
+        # ---- Bersihkan memori ----
         del results_img, results, img_array, x
         gc.collect()
 
-        # ====================
-        # Prediksi Gabungan
-        # ====================
+        # ---- Prediksi Gabungan ----
         final_label = ("Sakit", "bad") if yolo_detected or cnn_label.lower() == "soybean_rust" else ("Sehat", "good")
         st.markdown("---")
         st.subheader("🌱 Prediksi Akhir")
