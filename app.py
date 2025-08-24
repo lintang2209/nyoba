@@ -5,27 +5,88 @@ import os
 import tensorflow as tf
 from ultralytics import YOLO
 import gdown
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-
-# Class names sesuai dataset
-CLASS_NAMES = ["sehat", "Soybean Rust"]
 
 # ====================
-# CSS Styling tetap sama
+# CSS Styling dengan URL daun online
 # ====================
 st.markdown("""
     <style>
-        /* ... CSS kamu tetap di sini ... */
+        .main {
+            background-color: white;
+        }
+
+        /* Daun kiri atas */
+        body::before {
+            content: "";
+            position: absolute;
+            top: -30px;
+            left: -50px;
+            width: 250px;
+            height: 250px;
+            background: url("https://i.ibb.co/Lh2W1tV/leaf-top.png") no-repeat;
+            background-size: contain;
+            transform: rotate(20deg);
+            z-index: -1;
+        }
+
+        /* Daun kanan bawah */
+        body::after {
+            content: "";
+            position: absolute;
+            bottom: -30px;
+            right: -50px;
+            width: 250px;
+            height: 250px;
+            background: url("https://i.ibb.co/Z2ShYDC/leaf-bottom.png") no-repeat;
+            background-size: contain;
+            transform: rotate(-15deg);
+            z-index: -1;
+        }
+
+        .center {
+            text-align: center;
+            padding-top: 120px;
+        }
+
+        .title {
+            font-size: 36px;
+            font-weight: 700;
+            color: #4b8b64;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            font-style: italic;
+            color: #7d7d7d;
+            margin-top: -10px;
+        }
+
+        .stButton>button {
+            background-color: #f0f0f0;
+            color: #4b8b64;
+            border-radius: 20px;
+            border: none;
+            padding: 10px 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #4b8b64;
+            color: white;
+        }
+
     </style>
 """, unsafe_allow_html=True)
 
 # ====================
-# Navigasi sederhana tetap sama
+# Navigasi sederhana
 # ====================
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
 if st.session_state.page == "home":
+    # Landing page
     st.markdown("""
     <div class="center">
         <p class="title">ayo cek tanamanmu!</p>
@@ -33,10 +94,17 @@ if st.session_state.page == "home":
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button("cek disini"):
-        st.session_state.page = "deteksi"
-        st.experimental_rerun()
+    # --- Gunakan kolom untuk memusatkan tombol ---
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2: # Letakkan tombol di kolom tengah
+        if st.button("cek disini"):
+            st.session_state.page = "deteksi"
+            st.rerun()
 
+
+# ====================
+# Halaman Deteksi (CNN & YOLO)
+# ====================
 elif st.session_state.page == "deteksi":
 
     st.title("Perbandingan Deteksi Penyakit Soybean Rust (CNN vs YOLO) 🌱")
@@ -44,9 +112,13 @@ elif st.session_state.page == "deteksi":
 
     @st.cache_resource
     def load_cnn_model():
-        GOOGLE_DRIVE_FILE_ID = "1sZegfJRnGu2tr00qtinTAeZeLaQnllrO"
+        # --- Unduh model dari Google Drive ---
+        GOOGLE_DRIVE_FILE_ID = "1sZegfJRnGu2tr00qtinTAeZeLaQnllrO" # Link sudah disesuaikan
         MODEL_PATH = "models/cnn.h5"
+        
+        # Periksa apakah folder "models" ada, jika tidak, buatlah
         os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+
         if not os.path.exists(MODEL_PATH):
             st.info("Mengunduh model dari Google Drive...")
             try:
@@ -55,6 +127,8 @@ elif st.session_state.page == "deteksi":
             except Exception as e:
                 st.error(f"Gagal mengunduh model dari Google Drive: {e}")
                 return None
+
+        # --- Muat model ---
         try:
             model = tf.keras.models.load_model(MODEL_PATH)
             return model
@@ -75,6 +149,7 @@ elif st.session_state.page == "deteksi":
             st.error(f"Gagal memuat model YOLOv8: {e}")
             return None
 
+    # Muat model
     cnn_model = load_cnn_model()
     yolo_model = load_yolo_model()
 
@@ -95,27 +170,17 @@ elif st.session_state.page == "deteksi":
             st.header("Hasil Analisis CNN")
             try:
                 img_resized = image.resize((224, 224))
-                img_array = np.array(img_resized)
-                img_array = preprocess_input(img_array)  # preprocessing MobileNetV2
-                img_array = np.expand_dims(img_array, axis=0)
+                img_array = np.expand_dims(np.array(img_resized) / 255.0, axis=0)
 
                 prediction = cnn_model.predict(img_array)
-                # Ini urutan yang benar berdasarkan folder di /train/
-CLASS_NAMES = ["sehat", "soybean_rust"]  # class index 0 = sehat, 1 = soybean_rust
+                class_id = np.argmax(prediction)
+                confidence = np.max(prediction)
+                
+                class_names = ["sehat", "Soybean Rust"]
+                predicted_class_name = class_names[class_id]
 
-predicted_class_name = CLASS_NAMES[class_id]
-
-# Jika ingin nama tampilannya lebih rapi:
-label_display = "Sehat" if predicted_class_name == "sehat" else "Soybean Rust"
-
-st.write(f"### Prediksi: **{label_display}**")
-st.write(f"Confidence: **{confidence:.2f}**")
-
-                # Threshold confidence
-                threshold = 0.6
-                if confidence < threshold:
-                    st.warning("Model kurang yakin dengan prediksi ini.")
-
+                st.write(f"### Prediksi: **{predicted_class_name}**")
+                st.write(f"Confidence: **{confidence:.2f}**")
             except Exception as e:
                 st.error(f"Terjadi kesalahan pada model CNN: {e}")
 
@@ -139,4 +204,4 @@ st.write(f"Confidence: **{confidence:.2f}**")
 
     if st.button("⬅️ Kembali ke Beranda"):
         st.session_state.page = "home"
-        st.experimental_rerun()
+        st.rerun()
