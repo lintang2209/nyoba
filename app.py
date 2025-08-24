@@ -50,7 +50,7 @@ elif st.session_state.page == "deteksi":
     st.write("Unggah gambar daun untuk melihat hasil deteksi CNN + YOLO")
 
     # ====================
-    # Load Models
+    # Load Model (cached)
     # ====================
     @st.cache_resource
     def load_cnn_model():
@@ -62,7 +62,7 @@ elif st.session_state.page == "deteksi":
 
     @st.cache_resource
     def load_yolo_model():
-        MODEL_PATH = "models/best.pt"  # sesuaikan nama file YOLO
+        MODEL_PATH = "models/best.pt"
         if not os.path.exists(MODEL_PATH):
             st.error(f"Model YOLOv8 tidak ditemukan: {MODEL_PATH}")
             return None
@@ -77,19 +77,26 @@ elif st.session_state.page == "deteksi":
         with open(PATH, "r") as f:
             return json.load(f)
 
+    def model_has_rescaling(m):
+        for layer in m.layers:
+            if isinstance(layer, tf.keras.layers.Rescaling):
+                return True
+        return False
+
     cnn_model = load_cnn_model()
     yolo_model = load_yolo_model()
     class_names = load_class_names()
     if None in [cnn_model, yolo_model, class_names]:
         st.stop()
+    HAS_RESCALING = model_has_rescaling(cnn_model)
 
     # ====================
-    # Upload Gambar
+    # Upload gambar
     # ====================
     uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg","png","jpeg"])
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
-        image.thumbnail((1024,1024))  # batasi ukuran agar hemat memori
+        image.thumbnail((1024,1024))
         st.image(image, caption="Gambar yang diunggah", use_column_width=True)
         st.write("---")
 
@@ -98,10 +105,8 @@ elif st.session_state.page == "deteksi":
         # ====================
         img_resized = image.resize((224,224))
         x = np.array(img_resized, dtype=np.float32)
-        # ❌ Jangan /255, karena model sudah ada Rescaling
-        img_array = np.expand_dims(x, axis=0)
-
-        prediction = cnn_model.predict(img_array, verbose=0)[0]
+        img_array = np.expand_dims(x, axis=0)  # jangan divalidasi /255 lagi
+        prediction = cnn_model(img_array, training=False).numpy()[0]
         class_id = int(np.argmax(prediction))
         confidence = float(prediction[class_id])
         cnn_label = class_names[class_id]
@@ -119,11 +124,11 @@ elif st.session_state.page == "deteksi":
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Hasil CNN")
-            st.write(f"Prediksi: **{cnn_label}**")
+            st.write(f"Prediksi CNN: **{cnn_label}**")
             st.write(f"Confidence: **{confidence:.2f}**")
 
         with col2:
-            st.subheader("Hasil YOLO")
+            st.subheader("Hasil YOLOv8")
             st.image(results_img, caption="Hasil YOLO", use_column_width=True)
             if yolo_detected:
                 st.success("Lesion terdeteksi oleh YOLO")
@@ -137,7 +142,7 @@ elif st.session_state.page == "deteksi":
         gc.collect()
 
         # ====================
-        # Prediksi Gabungan CNN+YOLO
+        # Prediksi Gabungan
         # ====================
         final_label = ("Sakit", "bad") if yolo_detected or cnn_label.lower() == "soybean_rust" else ("Sehat", "good")
         st.markdown("---")
