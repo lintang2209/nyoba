@@ -99,7 +99,6 @@ elif st.session_state.page == "deteksi":
         st.stop()
 
     HAS_RESCALING = model_has_rescaling(cnn_model)
-    st.caption(f": {'(Rescaling di dalam model → JANGAN /255 di app)' if HAS_RESCALING else '(Tidak ada Rescaling di model → /255 di app)'}")
 
     uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg","png","jpeg"])
     if uploaded_file:
