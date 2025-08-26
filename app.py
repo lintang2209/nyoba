@@ -24,9 +24,7 @@ body {background-color: white;}
 
 /* CSS baru untuk memusatkan tombol secara presisi */
 .button-center-container {
-    display: flex;
-    justify-content: center;
-    width: 100%; /* Memastikan container mengambil seluruh lebar yang tersedia */
+    text-align: center; /* Ini yang akan memusatkan tombol */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -42,7 +40,7 @@ if st.session_state.page == "home":
     </div>
     """, unsafe_allow_html=True)
     
-    # Bungkus tombol dengan div dan class baru agar benar-benar di tengah
+    # Bungkus tombol dengan div khusus agar benar-benar di tengah
     st.markdown('<div class="button-center-container">', unsafe_allow_html=True)
     if st.button("cek disini"):
         st.session_state.page = "deteksi"
