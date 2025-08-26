@@ -21,11 +21,6 @@ body {background-color: white;}
 .good {color:#1b7f2a; font-weight:700;}
 .bad {color:#c62828; font-weight:700;}
 .maybe {color:#b26a00; font-weight:700;}
-
-/* CSS baru untuk memusatkan tombol secara presisi */
-.button-center-container {
-    text-align: center; /* Ini yang akan memusatkan tombol */
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -39,18 +34,17 @@ if st.session_state.page == "home":
         <p class="subtitle">kenali soybean rust sejak dini<br>untuk hasil panen yang lebih baik</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    # Bungkus tombol dengan div khusus agar benar-benar di tengah
-    st.markdown('<div class="button-center-container">', unsafe_allow_html=True)
-    if st.button("cek disini"):
-        st.session_state.page = "deteksi"
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Metode manual untuk memusatkan tombol
+    col1, col2, col3 = st.columns([1.5, 1, 1.5])
+    with col2:
+        if st.button("cek disini"):
+            st.session_state.page = "deteksi"
+            st.rerun()
 
 elif st.session_state.page == "deteksi":
     st.title("Deteksi Penyakit Soybean Rust (CNN + YOLO) 🌱")
     st.write("Unggah gambar daun untuk melihat hasil deteksi CNN + YOLO")
-
     @st.cache_resource
     def download_cnn_model():
         url = "https://drive.google.com/uc?id=1JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd"
