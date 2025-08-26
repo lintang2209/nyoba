@@ -1,118 +1,157 @@
 import streamlit as st
-import tensorflow as tf
 import numpy as np
-import cv2
+from PIL import Image
 import os
+import tensorflow as tf
 from ultralytics import YOLO
 import json
-from PIL import Image
 
-# ====================
-# Load CNN Model dari Google Drive
-# ====================
-@st.cache_resource
-def load_cnn_model_from_gdrive():
-    import gdown
+st.markdown("""
+<style>
+body {background-color: white;}
+.center {text-align: center; padding-top: 120px;}
+.title {font-size: 36px; font-weight: 700; color: #4b8b64;}
+.subtitle {font-size: 16px; font-style: italic; color: #7d7d7d; margin-top: -10px;}
+.stButton>button {
+    background-color: #f0f0f0; color: #4b8b64; border-radius: 20px; border: none;
+    padding: 10px 25px; font-weight: 600; cursor: pointer; transition: 0.3s;
+}
+.stButton>button:hover {background-color: #4b8b64; color: white;}
+.good {color:#1b7f2a; font-weight:700;}
+.bad {color:#c62828; font-weight:700;}
+.maybe {color:#b26a00; font-weight:700;}
+</style>
+""", unsafe_allow_html=True)
 
-    # ID file Google Drive
-    GOOGLE_DRIVE_FILE_ID = "1JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd"
-    MODEL_PATH = "models/cnn.h5"
+if "page" not in st.session_state:
+    st.session_state.page = "home"
 
-    # Pastikan folder models ada
-    if not os.path.exists("models"):
-        os.makedirs("models")
-
-    # Download model jika belum ada
-    if not os.path.exists(MODEL_PATH):
-        st.info("Mengunduh model CNN dari Google Drive...")
-        url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
-        gdown.download(url, MODEL_PATH, quiet=False)
-        st.success("Model CNN berhasil diunduh dan dimuat!")
-
-    else:
-        st.info("Model CNN sudah ada, langsung dimuat...")
-        st.success("Model CNN berhasil dimuat!")
-
-    # Load model
-    return tf.keras.models.load_model(MODEL_PATH)
-
-# ===============================
-# Load YOLO model & class names
-# ===============================
-@st.cache_resource
-def load_yolo_model():
-    YOLO_PATH = "models/best.pt"  # tetap lokal
-    if not os.path.exists(YOLO_PATH):
-        st.error(f"Model YOLO tidak ditemukan: {YOLO_PATH}")
-        return None
-    return YOLO(YOLO_PATH)
-
-@st.cache_resource
-def load_class_names():
-    CLASS_PATH = "models/class_names.json"  # tetap lokal
-    if not os.path.exists(CLASS_PATH):
-        st.error(f"class_names.json tidak ditemukan: {CLASS_PATH}")
-        return None
-    with open(CLASS_PATH, "r") as f:
-        return json.load(f)
-
-# ===============================
-# Preprocess untuk CNN
-# ===============================
-def preprocess_image(img):
-    img = img.resize((224, 224))
-    img_array = tf.keras.utils.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    return img_array
-
-# ===============================
-# Prediksi CNN
-# ===============================
-def predict_cnn(model, img, class_names):
-    img_array = preprocess_image(img)
-    predictions = model.predict(img_array)
-    class_idx = np.argmax(predictions[0])
-    confidence = float(predictions[0][class_idx])
-    return class_names[class_idx], confidence
-
-# ===============================
-# Prediksi YOLO
-# ===============================
-def predict_yolo(model, img):
-    results = model.predict(img)
-    return results
-
-# ===============================
-# Streamlit UI
-# ===============================
-st.title("🌿 Deteksi Daun: CNN vs YOLO")
-
-cnn_model = load_cnn_model()
-yolo_model = load_yolo_model()
-class_names = load_class_names()
-
-uploaded_file = st.file_uploader("Upload gambar daun...", type=["jpg", "jpeg", "png"])
-
-if uploaded_file is not None and cnn_model and yolo_model and class_names:
-    image = Image.open(uploaded_file).convert("RGB")
-
-    # CNN Prediction
-    label_cnn, confidence_cnn = predict_cnn(cnn_model, image, class_names)
-    
-    # YOLO Prediction
-    results = predict_yolo(yolo_model, uploaded_file)
-    result_img = results[0].plot()
-    result_img = cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)
-
-    # Tampilkan hasil berdampingan
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("🔹 CNN Prediction")
-        st.image(image, caption="Gambar Input", use_container_width=True)
-        st.markdown(f"**Hasil Prediksi CNN:** {label_cnn}")
-        st.markdown(f"**Confidence:** {confidence_cnn:.2f}")
-
+if st.session_state.page == "home":
+    st.markdown("""
+    <div class="center">
+        <p class="title">ayo cek tanamanmu!</p>
+        <p class="subtitle">kenali soybean rust sejak dini<br>untuk hasil panen yang lebih baik</p>
+    </div>
+    """, unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1,1,1])
     with col2:
-        st.subheader("🔹 YOLO Prediction")
-        st.image(result_img, caption="Hasil YOLO", use_container_width=True)
+        if st.button("cek disini"):
+            st.session_state.page = "deteksi"
+            st.rerun()
+
+elif st.session_state.page == "deteksi":
+    st.title("Deteksi Penyakit Soybean Rust (CNN + YOLO) 🌱")
+    st.write("Unggah gambar daun untuk melihat hasil deteksi CNN + YOLO")
+
+    @st.cache_resource
+    def load_cnn_model():
+        MODEL_PATH = "models/cnn.h5"
+        if not os.path.exists(MODEL_PATH):
+            st.error(f"Model CNN tidak ditemukan: {MODEL_PATH}")
+            return None
+        return tf.keras.models.load_model(MODEL_PATH)
+
+    @st.cache_resource
+    def load_yolo_model():
+        MODEL_PATH = "models/best.pt"
+        if not os.path.exists(MODEL_PATH):
+            st.error(f"Model YOLOv8 tidak ditemukan: {MODEL_PATH}")
+            return None
+        return YOLO(MODEL_PATH)
+
+    @st.cache_resource
+    def load_class_names():
+        PATH = "models/class_names.json"
+        if not os.path.exists(PATH):
+            st.error(f"File class_names.json tidak ditemukan: {PATH}")
+            return None
+        with open(PATH, "r") as f:
+            return json.load(f)
+
+    def model_has_rescaling(m):
+        # Cek menyeluruh apakah ada layer Rescaling di dalam model
+        try:
+            for lyr in m._flatten_layers():
+                if isinstance(lyr, tf.keras.layers.Rescaling):
+                    return True
+        except Exception:
+            for lyr in m.layers:
+                if isinstance(lyr, tf.keras.layers.Rescaling):
+                    return True
+        return False
+
+    cnn_model = load_cnn_model()
+    yolo_model = load_yolo_model()
+    class_names = load_class_names()
+    if None in [cnn_model, yolo_model, class_names]:
+        st.stop()
+
+    HAS_RESCALING = model_has_rescaling(cnn_model)
+    st.caption(f": {'(Rescaling di dalam model → JANGAN /255 di app)' if HAS_RESCALING else '(Tidak ada Rescaling di model → /255 di app)'}")
+
+    uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg","png","jpeg"])
+    if uploaded_file:
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="Gambar yang diunggah", use_column_width=True)
+        st.write("---")
+
+        # === Preprocess CNN ===
+        img_resized = image.resize((224,224))
+        x = np.array(img_resized, dtype=np.float32)
+
+        if HAS_RESCALING:
+            # Model sudah melakukan /255 di dalam graf → kirim 0–255
+            img_array = np.expand_dims(x, axis=0)
+        else:
+            # Model belum melakukan /255 → normalisasi di app
+            img_array = np.expand_dims(x / 255.0, axis=0)
+
+        prediction = cnn_model.predict(img_array)
+        class_id = int(np.argmax(prediction))
+        confidence = float(np.max(prediction))
+
+        # Threshold untuk label "tidak yakin"
+        THRESHOLD = 0.60
+        cnn_label = class_names[class_id] if confidence >= THRESHOLD else "Tidak yakin"
+
+        # === Jalankan YOLO ===
+        results = yolo_model(image)
+        results_img = results[0].plot()
+        yolo_detected = len(results[0].boxes) > 0
+
+        # === Layout 2 kolom ===
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Hasil CNN")
+            st.write("Raw prediction:", prediction)
+            st.write("Class names:", class_names)
+            st.write(f"Predicted class id: {class_id}")
+            st.write(f"Confidence: {confidence:.2f}")
+            st.write(f"Label CNN: **{cnn_label}**")
+
+        with col2:
+            st.subheader("Hasil YOLOv8")
+            st.image(results_img, caption="Hasil YOLO", use_column_width=True)
+            if yolo_detected:
+                st.success("Lesion terdeteksi oleh YOLO")
+            else:
+                st.info("Tidak ada lesion terdeteksi oleh YOLO")
+
+        # === Aturan gabungan (utamakan YOLO untuk lesion) ===
+        # Jika YOLO tidak mendeteksi lesion, anggap sehat, KECUALI CNN sangat yakin (>=0.99) menyatakan sakit.
+        if not yolo_detected:
+            if cnn_label.lower() in ["soybean rust", "sakit"] and confidence >= 0.99:
+                final_label = ("Sakit", "bad")
+            else:
+                final_label = ("Sehat", "good")
+        else:
+            # Ada lesion → anggap sakit
+            final_label = ("Sakit", "bad")
+
+        st.markdown("---")
+        st.subheader("🌱 Prediksi Akhir")
+        st.markdown(f"<span class='{final_label[1]}'>{final_label[0]}</span>", unsafe_allow_html=True)
+
+    if st.button("⬅️ Kembali ke Beranda"):
+        st.session_state.page = "home"
+        st.rerun()
