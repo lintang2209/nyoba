@@ -9,6 +9,7 @@ from ultralytics import YOLO
 import json
 import gdown  # untuk download model dari Google Drive
 
+<style>
 stButton>button {
             background-color: #f0f0f0;
             color: #4b8b64;
