@@ -14,13 +14,28 @@ body {background-color: white;}
 .title {font-size: 36px; font-weight: 700; color: #4b8b64;}
 .subtitle {font-size: 16px; font-style: italic; color: #7d7d7d; margin-top: -10px;}
 .stButton>button {
-    background-color: #f0f0f0; color: #4b8b64; border-radius: 20px; border: none;
-    padding: 10px 25px; font-weight: 600; cursor: pointer; transition: 0.3s;
+    background-color: #f0f0f0;
+    color: #4b8b64;
+    border-radius: 20px;
+    border: none;
+    padding: 10px 25px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
 }
-.stButton>button:hover {background-color: #4b8b64; color: white;}
+.stButton>button:hover {
+    background-color: #4b8b64;
+    color: white;
+}
 .good {color:#1b7f2a; font-weight:700;}
 .bad {color:#c62828; font-weight:700;}
 .maybe {color:#b26a00; font-weight:700;}
+
+/* CSS baru untuk memusatkan tombol */
+div.stButton {
+    display: flex;
+    justify-content: center;
+}
 </style>
 """, unsafe_allow_html=True)
 
