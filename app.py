@@ -11,34 +11,30 @@ from PIL import Image
 # Load CNN Model dari Google Drive
 # ====================
 @st.cache_resource
-def load_cnn_model():
+def load_cnn_model_from_gdrive():
     import gdown
-    import tensorflow as tf
-    import os
 
-        # --- Unduh model dari Google Drive ---
-        GOOGLE_DRIVE_FILE_ID = "11JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd" # Link sudah disesuaikan
-        MODEL_PATH = "models/cnn.h5"
-        
-        # Periksa apakah folder "models" ada, jika tidak, buatlah
-        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    # ID file Google Drive
+    GOOGLE_DRIVE_FILE_ID = "1JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd"
+    MODEL_PATH = "models/cnn.h5"
 
-        if not os.path.exists(MODEL_PATH):
-            st.info("Mengunduh model dari Google Drive...")
-            try:
-                gdown.download(f'https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}', MODEL_PATH, quiet=False)
-                st.success("Model berhasil diunduh!")
-            except Exception as e:
-                st.error(f"Gagal mengunduh model dari Google Drive: {e}")
-                return None
+    # Pastikan folder models ada
+    if not os.path.exists("models"):
+        os.makedirs("models")
 
-        # --- Muat model ---
-        try:
-            model = tf.keras.models.load_model(MODEL_PATH)
-            return model
-        except Exception as e:
-            st.error(f"Gagal memuat model CNN: {e}")
-            return None
+    # Download model jika belum ada
+    if not os.path.exists(MODEL_PATH):
+        st.info("Mengunduh model CNN dari Google Drive...")
+        url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
+        gdown.download(url, MODEL_PATH, quiet=False)
+        st.success("Model CNN berhasil diunduh dan dimuat!")
+
+    else:
+        st.info("Model CNN sudah ada, langsung dimuat...")
+        st.success("Model CNN berhasil dimuat!")
+
+    # Load model
+    return tf.keras.models.load_model(MODEL_PATH)
 
 # ===============================
 # Load YOLO model & class names
