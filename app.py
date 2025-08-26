@@ -7,16 +7,26 @@ from ultralytics import YOLO
 import json
 from PIL import Image
 
-# ===============================
-# Load CNN model dari Google Drive
-# ===============================
+# ====================
+# Load CNN Model dari Google Drive
+# ====================
 @st.cache_resource
 def load_cnn_model():
-    MODEL_PATH = "/content/drive/MyDrive/models/cnn.h5"  # ⬅️ path GDrive
-    if not os.path.exists(MODEL_PATH):
-        st.error(f"Model CNN tidak ditemukan: {MODEL_PATH}")
-        return None
-    return tf.keras.models.load_model(MODEL_PATH)
+    import gdown
+    import tensorflow as tf
+    import os
+
+    # ID file dari link Google Drive
+    file_id = "1JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd"
+    url = f"https://drive.google.com/uc?id={file_id}"
+    output = "cnn.h5"  # file sementara di project
+
+    if not os.path.exists(output):
+        st.info("Mengunduh model CNN dari Google Drive...")
+        gdown.download(url, output, quiet=False)
+
+    return tf.keras.models.load_model(output)
+
 
 # ===============================
 # Load YOLO model & class names
