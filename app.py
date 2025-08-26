@@ -16,17 +16,29 @@ def load_cnn_model():
     import tensorflow as tf
     import os
 
-    # ID file dari link Google Drive
-    file_id = "1JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd"
-    url = f"https://drive.google.com/uc?id={file_id}"
-    output = "cnn.h5"  # file sementara di project
+        # --- Unduh model dari Google Drive ---
+        GOOGLE_DRIVE_FILE_ID = "1sZegfJRnGu2tr00qtinTAeZeLaQnllrO" # Link sudah disesuaikan
+        MODEL_PATH = "models/cnn.h5"
+        
+        # Periksa apakah folder "models" ada, jika tidak, buatlah
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
 
-    if not os.path.exists(output):
-        st.info("Mengunduh model CNN dari Google Drive...")
-        gdown.download(url, output, quiet=False)
+        if not os.path.exists(MODEL_PATH):
+            st.info("Mengunduh model dari Google Drive...")
+            try:
+                gdown.download(f'https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}', MODEL_PATH, quiet=False)
+                st.success("Model berhasil diunduh!")
+            except Exception as e:
+                st.error(f"Gagal mengunduh model dari Google Drive: {e}")
+                return None
 
-    return tf.keras.models.load_model(output)
-
+        # --- Muat model ---
+        try:
+            model = tf.keras.models.load_model(MODEL_PATH)
+            return model
+        except Exception as e:
+            st.error(f"Gagal memuat model CNN: {e}")
+            return None
 
 # ===============================
 # Load YOLO model & class names
