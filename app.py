@@ -17,7 +17,7 @@ def load_cnn_model():
     import os
 
         # --- Unduh model dari Google Drive ---
-        GOOGLE_DRIVE_FILE_ID = "1sZegfJRnGu2tr00qtinTAeZeLaQnllrO" # Link sudah disesuaikan
+        GOOGLE_DRIVE_FILE_ID = "11JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd" # Link sudah disesuaikan
         MODEL_PATH = "models/cnn.h5"
         
         # Periksa apakah folder "models" ada, jika tidak, buatlah
