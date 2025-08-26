@@ -26,6 +26,7 @@ body {background-color: white;}
 .button-center-container {
     display: flex;
     justify-content: center;
+    width: 100%; /* Memastikan container mengambil seluruh lebar yang tersedia */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -40,11 +41,13 @@ if st.session_state.page == "home":
         <p class="subtitle">kenali soybean rust sejak dini<br>untuk hasil panen yang lebih baik</p>
     </div>
     """, unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1,1,1])
-    with col2:
-        if st.button("cek disini"):
-            st.session_state.page = "deteksi"
-            st.rerun()
+    
+    # Bungkus tombol dengan div dan class baru agar benar-benar di tengah
+    st.markdown('<div class="button-center-container">', unsafe_allow_html=True)
+    if st.button("cek disini"):
+        st.session_state.page = "deteksi"
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.page == "deteksi":
     st.title("Deteksi Penyakit Soybean Rust (CNN + YOLO) 🌱")
