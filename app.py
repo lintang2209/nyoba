@@ -4,156 +4,207 @@ from PIL import Image
 import os
 import tensorflow as tf
 from ultralytics import YOLO
-import json
-import gdown  # untuk download model dari Google Drive
+import gdown
 
+# ====================
+# CSS Styling dengan URL daun online
+# ====================
 st.markdown("""
-<style>
-body {background-color: white;}
-.center {text-align: center; padding-top: 120px;}
-.title {font-size: 36px; font-weight: 700; color: #4b8b64;}
-.subtitle {font-size: 16px; font-style: italic; color: #7d7d7d; margin-top: -10px;}
-.stButton>button {
-    background-color: #f0f0f0; color: #4b8b64; border-radius: 20px; border: none;
-    padding: 10px 25px; font-weight: 600; cursor: pointer; transition: 0.3s;
-}
-.stButton>button:hover {background-color: #4b8b64; color: white;}
-.good {color:#1b7f2a; font-weight:700;}
-.bad {color:#c62828; font-weight:700;}
-.maybe {color:#b26a00; font-weight:700;}
-</style>
+    <style>
+        .main {
+            background-color: #6666;
+        }
+
+        /* Daun kiri atas */
+        body::before {
+            content: "";
+            position: absolute;
+            top: -30px;
+            left: -50px;
+            width: 250px;
+            height: 250px;
+            background: url("https://i.ibb.co/Lh2W1tV/leaf-top.png") no-repeat;
+            background-size: contain;
+            transform: rotate(20deg);
+            z-index: -1;
+        }
+
+        /* Daun kanan bawah */
+        body::after {
+            content: "";
+            position: absolute;
+            bottom: -30px;
+            right: -50px;
+            width: 250px;
+            height: 250px;
+            background: url("https://i.ibb.co/Z2ShYDC/leaf-bottom.png") no-repeat;
+            background-size: contain;
+            transform: rotate(-15deg);
+            z-index: -1;
+        }
+
+        .center {
+            text-align: center;
+            padding-top: 120px;
+        }
+
+        .title {
+            font-size: 36px;
+            font-weight: 700;
+            color: #4b8b64;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            font-style: italic;
+            color: #7d7d7d;
+            margin-top: -10px;
+        }
+
+        .stButton>button {
+            background-color: #f0f0f0;
+            color: #4b8b64;
+            border-radius: 20px;
+            border: none;
+            padding: 10px 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #4b8b64;
+            color: white;
+        }
+
+        /* CSS baru untuk memusatkan tombol secara presisi */
+        div.stButton {
+            display: flex;
+            justify-content: center;
+        }
+
+    </style>
 """, unsafe_allow_html=True)
 
+# ====================
+# Navigasi sederhana
+# ====================
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
 if st.session_state.page == "home":
+    # Landing page
     st.markdown("""
     <div class="center">
         <p class="title">ayo cek tanamanmu!</p>
         <p class="subtitle">kenali soybean rust sejak dini<br>untuk hasil panen yang lebih baik</p>
     </div>
     """, unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1,1,1])
-    with col2:
-        if st.button("cek disini"):
-            st.session_state.page = "deteksi"
-            st.rerun()
 
+    # Tombol akan otomatis berada di tengah berkat CSS di atas
+    if st.button("cek disini"):
+        st.session_state.page = "deteksi"
+        st.experimental_rerun() # Menggunakan st.experimental_rerun() untuk mengatasi potensi masalah di beberapa versi Streamlit
+
+# ====================
+# Halaman Deteksi (CNN & YOLO)
+# ====================
 elif st.session_state.page == "deteksi":
-    st.title("Deteksi Penyakit Soybean Rust (CNN + YOLO) 🌱")
-    st.write("Unggah gambar daun untuk melihat hasil deteksi CNN + YOLO")
 
-    @st.cache_resource
-    def download_cnn_model():
-        url = "https://drive.google.com/uc?id=1JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd"
-        local_path = "models/cnn.h5"
-        os.makedirs("models", exist_ok=True)
-        if not os.path.exists(local_path):
-            with st.spinner("Mengunduh model CNN dari Google Drive..."):
-                gdown.download(url, local_path, quiet=False)
-        return local_path
+    st.title("Perbandingan Deteksi Penyakit Soybean Rust (CNN vs YOLO) 🌱")
+    st.write("Unggah satu gambar daun kedelai untuk melihat hasil deteksi dari kedua model secara bersamaan.")
 
     @st.cache_resource
     def load_cnn_model():
-        MODEL_PATH = download_cnn_model()
+        # --- Unduh model dari Google Drive ---
+        GOOGLE_DRIVE_FILE_ID = "1sZegfJRnGu2tr00qtinTAeZeLaQnllrO" # Link sudah disesuaikan
+        MODEL_PATH = "models/cnn.h5"
+        
+        # Periksa apakah folder "models" ada, jika tidak, buatlah
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+
         if not os.path.exists(MODEL_PATH):
-            st.error(f"Model CNN tidak ditemukan: {MODEL_PATH}")
+            st.info("Mengunduh model dari Google Drive...")
+            try:
+                gdown.download(f'https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}', MODEL_PATH, quiet=False)
+                st.success("Model berhasil diunduh!")
+            except Exception as e:
+                st.error(f"Gagal mengunduh model dari Google Drive: {e}")
+                return None
+
+        # --- Muat model ---
+        try:
+            model = tf.keras.models.load_model(MODEL_PATH)
+            return model
+        except Exception as e:
+            st.error(f"Gagal memuat model CNN: {e}")
             return None
-        with st.spinner("Memuat model CNN..."):
-            return tf.keras.models.load_model(MODEL_PATH)
 
     @st.cache_resource
     def load_yolo_model():
         MODEL_PATH = "models/best.pt"
         if not os.path.exists(MODEL_PATH):
-            st.error(f"Model YOLOv8 tidak ditemukan: {MODEL_PATH}")
+            st.error(f"File model YOLOv8 tidak ditemukan: {MODEL_PATH}")
             return None
-        with st.spinner("Memuat model YOLOv8..."):
-            return YOLO(MODEL_PATH)
-
-    @st.cache_resource
-    def load_class_names():
-        PATH = "models/class_names.json"
-        if not os.path.exists(PATH):
-            st.error(f"File class_names.json tidak ditemukan: {PATH}")
-            return None
-        with open(PATH, "r") as f:
-            return json.load(f)
-
-    def model_has_rescaling(m):
         try:
-            for lyr in m._flatten_layers():
-                if isinstance(lyr, tf.keras.layers.Rescaling):
-                    return True
-        except Exception:
-            for lyr in m.layers:
-                if isinstance(lyr, tf.keras.layers.Rescaling):
-                    return True
-        return False
+            model = YOLO(MODEL_PATH)
+            return model
+        except Exception as e:
+            st.error(f"Gagal memuat model YOLOv8: {e}")
+            return None
 
+    # Muat model
     cnn_model = load_cnn_model()
     yolo_model = load_yolo_model()
-    class_names = load_class_names()
-    if None in [cnn_model, yolo_model, class_names]:
+
+    if cnn_model is None or yolo_model is None:
         st.stop()
 
-    HAS_RESCALING = model_has_rescaling(cnn_model)
+    uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg", "png", "jpeg"])
 
-    uploaded_file = st.file_uploader("Pilih gambar daun...", type=["jpg","png","jpeg"])
-    if uploaded_file:
+    if uploaded_file is not None:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="Gambar yang diunggah", use_column_width=True)
         st.write("---")
 
-        img_resized = image.resize((224,224))
-        x = np.array(img_resized, dtype=np.float32)
-        if HAS_RESCALING:
-            img_array = np.expand_dims(x, axis=0)
-        else:
-            img_array = np.expand_dims(x / 255.0, axis=0)
-
-        with st.spinner("Menjalankan prediksi CNN..."):
-            prediction = cnn_model.predict(img_array)
-        class_id = int(np.argmax(prediction))
-        confidence = float(np.max(prediction))
-        THRESHOLD = 0.60
-        cnn_label = class_names[class_id] if confidence >= THRESHOLD else "Tidak yakin"
-
-        with st.spinner("Menjalankan deteksi YOLO..."):
-            results = yolo_model(image)
-            results_img = results[0].plot()
-            yolo_detected = len(results[0].boxes) > 0
-
         col1, col2 = st.columns(2)
+
+        # ==== CNN ====
         with col1:
-            st.subheader("Hasil CNN")
-            st.write("Raw prediction:", prediction)
-            st.write("Class names:", class_names)
-            st.write(f"Predicted class id: {class_id}")
-            st.write(f"Confidence: {confidence:.2f}")
-            st.write(f"Label CNN: **{cnn_label}**")
+            st.header("Hasil Analisis CNN")
+            try:
+                img_resized = image.resize((224, 224))
+                img_array = np.expand_dims(np.array(img_resized) / 255.0, axis=0)
 
+                prediction = cnn_model.predict(img_array)
+                class_id = np.argmax(prediction)
+                confidence = np.max(prediction)
+                
+                class_names = ["sehat", "Soybean Rust"]
+                predicted_class_name = class_names[class_id]
+
+                st.write(f"### Prediksi: **{predicted_class_name}**")
+                st.write(f"Confidence: **{confidence:.2f}**")
+            except Exception as e:
+                st.error(f"Terjadi kesalahan pada model CNN: {e}")
+
+        # ==== YOLOv8 ====
         with col2:
-            st.subheader("Hasil YOLOv8")
-            st.image(results_img, caption="Hasil YOLO", use_column_width=True)
-            if yolo_detected:
-                st.success("Lesion terdeteksi oleh YOLO")
-            else:
-                st.info("Tidak ada lesion terdeteksi oleh YOLO")
+            st.header("Hasil Analisis YOLOv8")
+            try:
+                results = yolo_model(image)
+                results_img = results[0].plot()
+                st.image(results_img, caption="Hasil Deteksi YOLOv8", use_column_width=True)
 
-        if not yolo_detected:
-            if cnn_label.lower() in ["soybean rust", "sakit"] and confidence >= 0.99:
-                final_label = ("Sakit", "bad")
-            else:
-                final_label = ("Sehat", "good")
-        else:
-            final_label = ("Sakit", "bad")
-
-        st.markdown("---")
-        st.subheader("🌱 Prediksi Akhir")
-        st.markdown(f"<span class='{final_label[1]}'>{final_label[0]}</span>", unsafe_allow_html=True)
+                if len(results[0].boxes) > 0:
+                    st.write("#### Detail Deteksi:")
+                    for box in results[0].boxes:
+                        conf = float(box.conf[0])
+                        st.write(f"- Ditemukan **Penyakit Soybean Rust** dengan confidence **{conf:.2f}**")
+                else:
+                    st.write("Tidak ditemukan penyakit Soybean Rust.")
+            except Exception as e:
+                st.error(f"Terjadi kesalahan pada model YOLOv8: {e}")
 
     if st.button("⬅️ Kembali ke Beranda"):
         st.session_state.page = "home"
-        st.rerun()
+        st.experimental_rerun()
