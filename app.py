@@ -5,6 +5,7 @@ import os
 import tensorflow as tf
 from ultralytics import YOLO
 import json
+import gdown  # untuk download model dari Google Drive
 
 st.markdown("""
 <style>
@@ -44,12 +45,23 @@ elif st.session_state.page == "deteksi":
     st.write("Unggah gambar daun untuk melihat hasil deteksi CNN + YOLO")
 
     @st.cache_resource
+    def download_cnn_model():
+        url = "https://drive.google.com/uc?id=1JeSvrid8Zw2xurG-pciDrw6EdI2qXuAd"
+        local_path = "models/cnn.h5"
+        os.makedirs("models", exist_ok=True)
+        if not os.path.exists(local_path):
+            with st.spinner("Mengunduh model CNN dari Google Drive..."):
+                gdown.download(url, local_path, quiet=False)
+        return local_path
+
+    @st.cache_resource
     def load_cnn_model():
-        MODEL_PATH = "models/cnn.h5"
+        MODEL_PATH = download_cnn_model()
         if not os.path.exists(MODEL_PATH):
             st.error(f"Model CNN tidak ditemukan: {MODEL_PATH}")
             return None
-        return tf.keras.models.load_model(MODEL_PATH)
+        with st.spinner("Memuat model CNN..."):
+            return tf.keras.models.load_model(MODEL_PATH)
 
     @st.cache_resource
     def load_yolo_model():
@@ -57,7 +69,8 @@ elif st.session_state.page == "deteksi":
         if not os.path.exists(MODEL_PATH):
             st.error(f"Model YOLOv8 tidak ditemukan: {MODEL_PATH}")
             return None
-        return YOLO(MODEL_PATH)
+        with st.spinner("Memuat model YOLOv8..."):
+            return YOLO(MODEL_PATH)
 
     @st.cache_resource
     def load_class_names():
@@ -69,7 +82,6 @@ elif st.session_state.page == "deteksi":
             return json.load(f)
 
     def model_has_rescaling(m):
-        # Cek menyeluruh apakah ada layer Rescaling di dalam model
         try:
             for lyr in m._flatten_layers():
                 if isinstance(lyr, tf.keras.layers.Rescaling):
@@ -95,31 +107,25 @@ elif st.session_state.page == "deteksi":
         st.image(image, caption="Gambar yang diunggah", use_column_width=True)
         st.write("---")
 
-        # === Preprocess CNN ===
         img_resized = image.resize((224,224))
         x = np.array(img_resized, dtype=np.float32)
-
         if HAS_RESCALING:
-            # Model sudah melakukan /255 di dalam graf → kirim 0–255
             img_array = np.expand_dims(x, axis=0)
         else:
-            # Model belum melakukan /255 → normalisasi di app
             img_array = np.expand_dims(x / 255.0, axis=0)
 
-        prediction = cnn_model.predict(img_array)
+        with st.spinner("Menjalankan prediksi CNN..."):
+            prediction = cnn_model.predict(img_array)
         class_id = int(np.argmax(prediction))
         confidence = float(np.max(prediction))
-
-        # Threshold untuk label "tidak yakin"
         THRESHOLD = 0.60
         cnn_label = class_names[class_id] if confidence >= THRESHOLD else "Tidak yakin"
 
-        # === Jalankan YOLO ===
-        results = yolo_model(image)
-        results_img = results[0].plot()
-        yolo_detected = len(results[0].boxes) > 0
+        with st.spinner("Menjalankan deteksi YOLO..."):
+            results = yolo_model(image)
+            results_img = results[0].plot()
+            yolo_detected = len(results[0].boxes) > 0
 
-        # === Layout 2 kolom ===
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Hasil CNN")
@@ -137,15 +143,12 @@ elif st.session_state.page == "deteksi":
             else:
                 st.info("Tidak ada lesion terdeteksi oleh YOLO")
 
-        # === Aturan gabungan (utamakan YOLO untuk lesion) ===
-        # Jika YOLO tidak mendeteksi lesion, anggap sehat, KECUALI CNN sangat yakin (>=0.99) menyatakan sakit.
         if not yolo_detected:
             if cnn_label.lower() in ["soybean rust", "sakit"] and confidence >= 0.99:
                 final_label = ("Sakit", "bad")
             else:
                 final_label = ("Sehat", "good")
         else:
-            # Ada lesion → anggap sakit
             final_label = ("Sakit", "bad")
 
         st.markdown("---")
